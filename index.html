@@ -23,7 +23,6 @@
             background-color: var(--color-silver-light);
         }
         .resort-bg-hero {
-            /* Fixed asset lookup path configuration to explicitly target your local image repository file name */
             background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.80)), url('beth.jpeg');
             background-size: cover;
             background-position: center;
@@ -54,22 +53,24 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Exact Local Culinary Menu Assets Registry Mapping File Names
+        // Categorized Menu Database Items matching your resort inventory mapping
         const MENU_ITEMS = [
-            { id: "p1", name: "Cake", price: 6.00, image: "cake.jpg" },
-            { id: "p2", name: "Brownie", price: 4.00, image: "food.jpg" },
-            { id: "p3", name: "Waffle", price: 5.00, image: "waf.jpg" },
-            { id: "p4", name: "Tiramisu", price: 6.00, image: "tiramisu.jpg" }
+            { id: "p1", name: "Chocolate Lava Cake", price: 6.00, image: "cake.jpg", category: "desert" },
+            { id: "p2", name: "Gourmet Beef Burger", price: 12.00, image: "food.jpg", category: "food" },
+            { id: "p3", name: "Belgian Waffles", price: 5.00, image: "waf.jpg", category: "desert" },
+            { id: "p4", name: "Classic Tiramisu", price: 6.00, image: "tiramisu.jpg", category: "recipes" },
+            { id: "p5", name: "Tropical Passion Juice", price: 4.50, image: "drinks.jpg", category: "drinks" },
+            { id: "p6", name: "Iced Caramel Macchiato", price: 5.50, image: "drinks.jpg", category: "drinks" },
+            { id: "p7", name: "Wood-Fired Pizza", price: 14.00, image: "food.jpg", category: "food" }
         ];
 
-        // All 9 Core Functional System Operational Department Buttons
         const SYSTEM_MODULES = [
             { id: 'mod1', title: '1. Reservations & Bookings' },
             { id: 'mod2', title: '2. Front Office Control' },
-            { id: 'mod3', title: '3. Room & Housekeeping' },
+            { id: 'mod3', title: '3. Room & Housekeeping (CRUD)' },
             { id: 'mod4', title: '4. Restaurant & Orders' },
-            { id: 'mod5', title: '5. Inventory & Stocks' },
-            { id: 'mod6', title: '6. Finance & Billing' },
+            { id: 'mod5', title: '5. Inventory & Stocks (CRUD)' },
+            { id: 'mod6', title: '6. Finance & Billing Balance' },
             { id: 'mod7', title: '7. HR & Access Logs' },
             { id: 'mod8', title: '8. Analytics Dashboard' },
             { id: 'mod9', title: '9. CRM & Feedback' }
@@ -80,7 +81,7 @@
                 this.cart = [];
                 this.currentView = 'welcome'; 
                 this.staffRole = ''; 
-                this.activeModuleTab = 'mod4'; 
+                this.activeModuleTab = 'mod3'; // Defaults directly to newly interactive Housekeeping matrix
                 this.liveOrders = [];
                 this.selectedDetailedOrder = null;
                 this.generatedOrderId = '';
@@ -88,18 +89,39 @@
                 this.guestNameInput = '';
                 this.trackingOrderIdSearch = '';
                 this.trackingOrderResult = null;
+                this.selectedCategoryFilter = 'all'; 
                 
                 // Invoice splitting system variables
                 this.splitCount = 2; 
                 this.selectedBillingOrderId = null;
 
-                // Bootstrap initialization routines
+                // Live Client-Side Inventory Matrix Array state tracking CRUD operations
+                this.inventoryItems = [
+                    { id: 'inv1', name: 'Chocolate Cake Base Mix', qty: 45, unit: 'Boxes', minLevel: 15 },
+                    { id: 'inv2', name: 'Artisan Coffee Beans', qty: 12, unit: 'KG', minLevel: 20 },
+                    { id: 'inv3', name: 'Premium Beef Fatties', qty: 80, unit: 'Units', minLevel: 30 },
+                    { id: 'inv4', name: 'Fresh Passion Fruit Extract', qty: 8, unit: 'Liters', minLevel: 10 }
+                ];
+
+                // Live Client-Side Housekeeping/Room List for dynamic CRUD operations
+                this.housekeepingRooms = [
+                    { id: 'rm101', number: '101', type: 'Deluxe Suite', status: 'Clean', staffAssigned: 'Alice Smith' },
+                    { id: 'rm102', number: '102', type: 'Executive King', status: 'Dirty', staffAssigned: 'Bob Jones' },
+                    { id: 'rm204', number: '204', type: 'Presidential Suite', status: 'Out of Order', staffAssigned: 'Charlie Brown' },
+                    { id: 'rm305', number: '305', type: 'Standard Double', status: 'Clean', staffAssigned: 'None' }
+                ];
+
                 this.render();
                 this.startLiveOrderListener();
             }
 
             setView(view) {
                 this.currentView = view;
+                this.render();
+            }
+
+            setCategoryFilter(category) {
+                this.selectedCategoryFilter = category;
                 this.render();
             }
 
@@ -119,6 +141,64 @@
                 this.render();
             }
 
+            // ==========================================================
+            // INVENTORY CRUD OPERATIONS CONTROLLERS
+            // ==========================================================
+            createInventoryItem(name, qty, unit, minLevel) {
+                const newItem = {
+                    id: 'inv_' + Date.now(),
+                    name: name || 'Unnamed Supply Asset',
+                    qty: parseInt(qty) || 0,
+                    unit: unit || 'Units',
+                    minLevel: parseInt(minLevel) || 10
+                };
+                this.inventoryItems.push(newItem);
+                this.render();
+            }
+
+            updateInventoryQty(itemId, amount) {
+                const item = this.inventoryItems.find(i => i.id === itemId);
+                if (!item) return;
+                item.qty += amount;
+                if (item.qty < 0) item.qty = 0;
+                this.render();
+            }
+
+            deleteInventoryItem(itemId) {
+                this.inventoryItems = this.inventoryItems.filter(i => i.id !== itemId);
+                this.render();
+            }
+
+            // ==========================================================
+            // HOUSEKEEPING & ROOM CRUD OPERATIONS CONTROLLERS
+            // ==========================================================
+            createRoomEntry(number, type, status, staff) {
+                const newRoom = {
+                    id: 'rm_' + Date.now(),
+                    number: number || 'N/A',
+                    type: type || 'Standard Room',
+                    status: status || 'Clean',
+                    staffAssigned: staff || 'Unassigned'
+                };
+                this.housekeepingRooms.push(newRoom);
+                this.render();
+            }
+
+            updateRoomStatus(roomId, newStatus) {
+                const room = this.housekeepingRooms.find(r => r.id === roomId);
+                if (!room) return;
+                room.status = newStatus;
+                this.render();
+            }
+
+            deleteRoomEntry(roomId) {
+                this.housekeepingRooms = this.housekeepingRooms.filter(r => r.id !== roomId);
+                this.render();
+            }
+
+            // ==========================================================
+            // FIREBASE BACKEND AND ANALYTICS METRICS CONTROLLERS
+            // ==========================================================
             startLiveOrderListener() {
                 try {
                     db.collection("orders")
@@ -143,12 +223,16 @@
                                 const match = this.liveOrders.find(o => o.orderRefId.toLowerCase() === this.trackingOrderIdSearch.toLowerCase());
                                 if (match) this.trackingOrderResult = match;
                             }
-                            
                             this.render();
                         });
                 } catch(err) {
-                    console.error("Database streaming initialization block failed: ", err);
+                    console.error("Database socket drop: ", err);
                 }
+            }
+
+            // Helper to pull combined total of all cloud orders instantly
+            getWholeTotalIncome() {
+                return this.liveOrders.reduce((acc, current) => acc + (current.total || 0), 0);
             }
 
             async submitMPaymentTransaction(e) {
@@ -157,7 +241,7 @@
                 const phoneInput = document.getElementById('checkout-mobile-input').value.trim();
                 
                 if (!nameInput || !phoneInput) { 
-                    alert("Please provide both checking metrics values."); 
+                    alert("Please complete identity forms fully."); 
                     return; 
                 }
                 
@@ -167,7 +251,7 @@
                 const btn = document.getElementById('btn-submit-checkout');
                 if (btn) { 
                     btn.disabled = true; 
-                    btn.innerText = "TRANSMITTING SECURE PAYLOAD..."; 
+                    btn.innerText = "TRANSMITTING TO RESORT BACKEND..."; 
                 }
 
                 const txnId = "BETH-" + Math.floor(10000 + Math.random() * 90000);
@@ -207,7 +291,7 @@
                     this.trackingOrderResult = match;
                 } else {
                     this.trackingOrderResult = null;
-                    alert("No record matching that Reference ID found in the database stream.");
+                    alert("No matching record found.");
                 }
                 this.render();
             }
@@ -220,7 +304,7 @@
                     this.render();
                 } catch(err) {
                     console.error(err);
-                    alert("Unable to process status adjustment over channel stream links.");
+                    alert("Pipeline state drop error.");
                 }
             }
 
@@ -239,9 +323,6 @@
                 this.bindAllEvents();
             }
 
-            // ==========================================================
-            // MODULE RENDER COMPONENT SCHEMAS
-            // ==========================================================
             viewWelcome() {
                 return `
                     <div class="relative min-h-screen w-full flex items-center justify-center resort-bg-hero overflow-hidden">
@@ -256,7 +337,7 @@
                         <div class="relative w-11/12 max-w-md bg-white rounded-xl p-8 text-center shadow-2xl border-t-4 border-[var(--color-light-green)]">
                             <span class="tracking-widest text-[var(--color-light-gold)] font-black text-xs uppercase block mb-1">Luxury Resort Workspace</span>
                             <h1 class="text-3xl font-black text-slate-900 mb-6">Bethany Management</h1>
-                            <p class="text-xs text-stone-500 mb-6 font-medium leading-relaxed">Welcome to the integrated Bethany management core. Access guest order configurations, split balances, or open department operations consoles instantly.</p>
+                            <p class="text-xs text-stone-500 mb-6 font-medium leading-relaxed">Access room refreshment systems, monitor live housekeeping metrics with full CRUD tools, or configure billing reports instantly.</p>
                             <div class="space-y-3">
                                 <button id="nav-menu" class="w-full py-4 bg-[var(--color-light-green)] text-white hover:bg-[var(--color-light-green-hover)] font-black rounded-lg transition text-xs uppercase tracking-wider cursor-pointer shadow-xs">
                                     🍇 Place Room Refreshment Order
@@ -272,6 +353,10 @@
 
             viewMenu() {
                 const total = this.cart.reduce((t, c) => t + (c.product.price * c.quantity), 0);
+                const filteredItems = this.selectedCategoryFilter === 'all' 
+                    ? MENU_ITEMS 
+                    : MENU_ITEMS.filter(item => item.category === this.selectedCategoryFilter);
+
                 return `
                     <header class="bg-white border-b border-stone-200 sticky top-0 z-50 px-8 py-4 flex justify-between items-center shadow-xs">
                         <h2 id="logo-home" class="text-lg font-black tracking-widest text-slate-900 cursor-pointer uppercase">B<span class="text-[var(--color-light-gold)]">ethany</span></h2>
@@ -280,14 +365,25 @@
 
                     <main class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="lg:col-span-2 space-y-6">
+                            
+                            <div class="flex flex-wrap gap-2 pb-2 border-b border-stone-200">
+                                <button data-filter-target="all" class="category-pill-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer ${this.selectedCategoryFilter === 'all' ? 'bg-[var(--color-light-green)] text-white shadow-sm' : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'}" >🥞 All Items</button>
+                                <button data-filter-target="drinks" class="category-pill-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer ${this.selectedCategoryFilter === 'drinks' ? 'bg-[var(--color-light-green)] text-white shadow-sm' : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'}" >🍹 Drinks</button>
+                                <button data-filter-target="food" class="category-pill-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer ${this.selectedCategoryFilter === 'food' ? 'bg-[var(--color-light-green)] text-white shadow-sm' : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'}" >🍔 Food</button>
+                                <button data-filter-target="recipes" class="category-pill-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer ${this.selectedCategoryFilter === 'recipes' ? 'bg-[var(--color-light-green)] text-white shadow-sm' : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'}" >📖 Recipes</button>
+                                <button data-filter-target="desert" class="category-pill-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer ${this.selectedCategoryFilter === 'desert' ? 'bg-[var(--color-light-green)] text-white shadow-sm' : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'}" >🧁 Desert</button>
+                            </div>
+
                             <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
-                                <span class="w-1.5 h-4 bg-[var(--color-light-green)] rounded-xs"></span> Guest Culinary Cart Selection
+                                <span class="w-1.5 h-4 bg-[var(--color-light-green)] rounded-xs"></span> Menu Selections (${filteredItems.length})
                             </h3>
+                            
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                ${MENU_ITEMS.map(item => `
+                                ${filteredItems.map(item => `
                                     <div class="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs flex flex-col justify-between hover:border-[var(--color-light-gold)] transition">
-                                        <div class="h-48 w-full bg-stone-100 flex items-center justify-center font-bold text-stone-400">
+                                        <div class="h-48 w-full bg-stone-100 flex items-center justify-center font-bold text-stone-400 relative">
                                             <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.parentNode.innerHTML='[ ${item.name} Image Asset ]'">
+                                            <span class="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] uppercase font-black px-2 py-0.5 rounded tracking-wider">${item.category}</span>
                                         </div>
                                         <div class="p-4 bg-white">
                                             <h4 class="font-black text-stone-900 text-sm">${item.name}</h4>
@@ -303,11 +399,11 @@
 
                         <div class="bg-white border border-stone-200 rounded-xl p-5 shadow-xs h-fit sticky top-24">
                             <div class="flex justify-between items-center border-b border-stone-100 pb-3 mb-4">
-                                <h3 class="text-sm font-black text-slate-900">🛒 Cart Contents</h3>
+                                <h3 class="text-sm font-black text-slate-900">🛒 Selected Basket</h3>
                                 <span class="text-[10px] bg-stone-100 text-stone-500 font-bold px-2 py-0.5 rounded">${this.cart.length} items</span>
                             </div>
                             ${this.cart.length === 0 ? `
-                                <p class="text-stone-400 text-xs text-center py-16 font-medium">Your culinary basket is currently empty.</p>
+                                <p class="text-stone-400 text-xs text-center py-16 font-medium">Basket is empty.</p>
                             ` : `
                                 <div class="space-y-3 mb-4 max-h-64 overflow-y-auto pr-1">
                                     ${this.cart.map(c => `
@@ -342,11 +438,11 @@
                 return `
                     <div class="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-stone-100">
                         <div class="w-full max-w-md bg-white rounded-xl p-6 shadow-xl border border-[var(--color-light-gold)]">
-                            <h2 class="text-base font-black text-slate-900 mb-1 flex items-center gap-2">📱 Dispatch Verification</h2>
-                            <p class="text-xs text-stone-400 mb-6 font-medium">Please supply tracking parameter data coordinates below to transmit your order logs.</p>
+                            <h2 class="text-base font-black text-slate-900 mb-1 flex items-center gap-2">📱 Guest Checkout Clearance</h2>
+                            <p class="text-xs text-stone-400 mb-6 font-medium">Provide details to submit your hotel transaction.</p>
                             
                             <div class="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-6">
-                                <span class="text-[10px] font-black text-stone-400 uppercase block tracking-wider">TOTAL ORDER VALUATION</span>
+                                <span class="text-[10px] font-black text-stone-400 uppercase block tracking-wider">TOTAL DUE BALANCE</span>
                                 <span class="text-2xl font-black text-[var(--color-light-green)] mt-0.5 block">$${total.toFixed(2)}</span>
                             </div>
 
@@ -356,17 +452,17 @@
                                     <input id="checkout-name-input" type="text" required placeholder="e.g. Jane Doe" class="w-full border border-stone-200 p-3 rounded-lg text-xs bg-white font-bold focus:outline-none focus:border-[var(--color-light-green)] transition shadow-inner">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-black text-stone-600 uppercase mb-1.5 tracking-wider">Mobile Phone Contact String:</label>
+                                    <label class="block text-[10px] font-black text-stone-600 uppercase mb-1.5 tracking-wider">Mobile Phone Contact Line:</label>
                                     <input id="checkout-mobile-input" type="text" required placeholder="e.g. 0788000000" class="w-full border border-stone-200 p-3 rounded-lg text-xs bg-white font-bold focus:outline-none focus:border-[var(--color-light-green)] transition shadow-inner">
                                 </div>
                                 
                                 <div class="pt-4">
                                     <button type="submit" id="btn-submit-checkout" class="w-full bg-[var(--color-card-red)] text-white py-3.5 rounded-lg font-black text-xs hover:bg-[var(--color-card-red-hover)] transition uppercase tracking-widest cursor-pointer shadow-md">
-                                        SUBMIT ORDER & DISPATCH TO LIVE FEED
+                                        SUBMIT ORDER TO FIRESTONE
                                     </button>
                                 </div>
                             </form>
-                            <button id="pay-cancel" class="w-full text-stone-400 text-xs mt-4 hover:underline text-center block font-black">Return and Edit Basket</button>
+                            <button id="pay-cancel" class="w-full text-stone-400 text-xs mt-4 hover:underline text-center block font-black">Return to Menu</button>
                         </div>
                     </div>
                 `;
@@ -377,8 +473,8 @@
                     <div class="min-h-screen w-full flex items-center justify-center px-4 bg-stone-100">
                         <div class="w-full max-w-md bg-white rounded-xl p-6 text-center border-2 border-[var(--color-light-green)] shadow-2xl">
                             <div class="w-12 h-12 bg-emerald-50 text-[var(--color-light-green)] rounded-full flex items-center justify-center text-xl mx-auto mb-4 border border-[var(--color-light-green)] font-black">✓</div>
-                            <h2 class="text-lg font-black text-slate-900">Order Sent Successfully!</h2>
-                            <p class="text-xs text-stone-400 mt-1 mb-6 font-medium">Your request balance summary tracking code reference token step has been dispatched into the active workstation modules pool loop.</p>
+                            <h2 class="text-lg font-black text-slate-900">Order Dispatched!</h2>
+                            <p class="text-xs text-stone-400 mt-1 mb-6 font-medium">Your tracking code has been dispatched into the active workstation modules pool loop.</p>
                             
                             <div class="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-4 text-left">
                                 <span class="text-[10px] font-black uppercase text-stone-400 tracking-wider block">Generated Reference Tracking Code ID</span>
@@ -399,13 +495,13 @@
                     <div class="min-h-screen w-full bg-stone-100 py-12 px-4 flex flex-col items-center">
                         <div class="w-full max-w-xl bg-white rounded-xl shadow-xl border border-stone-200 p-6">
                             <div class="flex justify-between items-center border-b border-stone-200 pb-4 mb-6">
-                                <h2 class="text-base font-black text-slate-900 uppercase tracking-wide">🔎 Room Service Request Tracker</h2>
+                                <h2 class="text-base font-black text-slate-900 uppercase tracking-wide">🔎 Live Progress Tracker</h2>
                                 <button id="btn-tracker-home" class="text-xs font-bold border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50 transition cursor-pointer">🏠 Exit Tracker</button>
                             </div>
 
                             <form id="form-order-tracker" class="flex gap-2 mb-6">
-                                <input id="tracker-id-input" type="text" value="${this.trackingOrderIdSearch}" placeholder="Enter Ticket Reference Code (e.g. BETH-54912)" class="flex-1 border border-stone-300 p-3 rounded-lg text-xs font-black uppercase tracking-wider focus:outline-none focus:border-[var(--color-light-green)]">
-                                <button type="submit" class="bg-slate-900 text-white font-black text-xs px-5 py-3 rounded-lg hover:bg-black transition cursor-pointer uppercase">Query State</button>
+                                <input id="tracker-id-input" type="text" value="${this.trackingOrderIdSearch}" placeholder="Enter Ticket Reference Code" class="flex-1 border border-stone-300 p-3 rounded-lg text-xs font-black uppercase tracking-wider focus:outline-none focus:border-[var(--color-light-green)]">
+                                <button type="submit" class="bg-slate-900 text-white font-black text-xs px-5 py-3 rounded-lg hover:bg-black transition cursor-pointer uppercase">Search</button>
                             </form>
 
                             ${!ord ? `
@@ -426,7 +522,7 @@
                                     </div>
 
                                     <div>
-                                        <p class="text-stone-400 text-[10px] uppercase mb-1.5">Ordered Items Contents Breakdown:</p>
+                                        <p class="text-stone-400 text-[10px] uppercase mb-1.5">Ordered Items:</p>
                                         <div class="bg-white border border-stone-100 rounded-lg p-3 divide-y divide-stone-100">
                                             ${ord.items.map(i => `
                                                 <div class="flex justify-between py-1.5 first:pt-0 last:pb-0 text-slate-800">
@@ -438,7 +534,7 @@
                                     </div>
 
                                     <div class="flex justify-between items-center bg-white border border-stone-100 p-3 rounded-lg">
-                                        <span class="text-stone-400 text-[10px] uppercase">Calculated Value:</span>
+                                        <span class="text-stone-400 text-[10px] uppercase">Financial Settlement</span>
                                         <span class="text-base font-black text-[var(--color-light-green)]">$${(ord.total || 0).toFixed(2)}</span>
                                     </div>
 
@@ -465,11 +561,11 @@
                     <div class="min-h-screen w-full flex items-center justify-center bg-slate-900 px-4">
                         <div class="w-full max-w-sm bg-white rounded-xl p-6 shadow-2xl border-t-4 border-[var(--color-light-gold)]">
                             <h2 class="text-base font-black text-slate-900 text-center uppercase tracking-wider">HMS Security Matrix Gateway</h2>
-                            <p class="text-xs text-stone-400 text-center mb-6 mt-1 font-medium">Input your internal registered duty role to unlock the 9 module workspace lines.</p>
+                            <p class="text-xs text-stone-400 text-center mb-6 mt-1 font-medium">Input your workspace title to manage all departments.</p>
                             
                             <div class="mb-4">
                                 <label class="block text-[10px] font-black text-stone-500 uppercase mb-1.5 tracking-wider">Duty Assignment Role Title</label>
-                                <input id="staff-role-input" type="text" placeholder="e.g. Chief of Kitchen, Waiters, Manager" class="w-full border border-stone-200 p-3 rounded-lg text-xs focus:outline-none focus:border-[var(--color-light-green)] bg-stone-50 font-black">
+                                <input id="staff-role-input" type="text" placeholder="e.g. Procurement, Kitchen Staff, Manager" class="w-full border border-stone-200 p-3 rounded-lg text-xs focus:outline-none focus:border-[var(--color-light-green)] bg-stone-50 font-black">
                             </div>
                             
                             <button id="btn-staff-login" class="w-full bg-[var(--color-light-green)] text-white py-3 rounded-lg font-black text-xs hover:bg-[var(--color-light-green-hover)] transition uppercase tracking-wider cursor-pointer shadow-xs">Establish Workstation Session</button>
@@ -490,7 +586,7 @@
                                     ACTIVE CLEARANCE DUTY ROLE: <span class="font-black uppercase text-slate-900">${this.staffRole || 'System Administrator'}</span>
                                 </p>
                             </div>
-                            <button id="btn-staff-logout" class="bg-white border border-stone-300 text-stone-600 px-4 py-2 text-xs font-black rounded-lg hover:bg-stone-50 transition cursor-pointer uppercase tracking-wider shadow-xs">Disconnect Session</button>
+                            <button id="btn-staff-logout" class="bg-white border border-stone-300 text-stone-600 px-4 py-2 text-xs font-black rounded-lg hover:bg-stone-100 transition cursor-pointer uppercase tracking-wider shadow-xs">🚪 Logout</button>
                         </header>
 
                         <div class="flex-1 flex flex-col lg:flex-row">
@@ -520,35 +616,104 @@
             }
 
             renderActiveTabContent() {
-                // Find order matching invoice splits view selection
                 const targetBillingOrder = this.liveOrders.find(o => o.id === this.selectedBillingOrderId);
 
                 switch(this.activeModuleTab) {
                     case 'mod1':
                         return `
                             <h2 class="text-sm font-black text-slate-900 mb-1">1. Reservations & Bookings Matrix</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Real-time room allocation status trackers and incoming reservations registry.</p>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Real-time room status and occupancy matrix configuration hooks.</p>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center"><span class="block text-xl font-black text-[var(--color-light-green)]">84%</span><span class="text-[10px] text-stone-400 uppercase font-black">Occupancy Yield</span></div>
                                 <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl text-center"><span class="block text-xl font-black text-blue-700">12</span><span class="text-[10px] text-stone-400 uppercase font-black">Expected Arrivals</span></div>
                                 <div class="p-4 bg-purple-50 border border-purple-100 rounded-xl text-center"><span class="block text-xl font-black text-purple-700">45</span><span class="text-[10px] text-stone-400 uppercase font-black">Active Room Keys</span></div>
                             </div>
-                            <button onclick="alert('Generating full room scheduling report array')" class="bg-slate-900 text-white text-xs font-black px-4 py-2.5 rounded-lg hover:bg-black uppercase tracking-wider cursor-pointer">Generate Schedule Report</button>
+                            <button onclick="alert('Generating full room scheduling report array...')" class="bg-slate-900 text-white text-xs font-black px-4 py-2.5 rounded-lg hover:bg-black uppercase tracking-wider cursor-pointer">Generate Schedule Report</button>
                         `;
                     case 'mod2':
                         return `
                             <h2 class="text-sm font-black text-slate-900 mb-1">2. Front Office Control Station</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Guest check-in validation pipelines and identity keycard data tracks.</p>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Guest check-in logs and security parameters verification panels.</p>
                             <div class="border border-stone-200 rounded-xl p-4 bg-stone-50 space-y-2">
                                 <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-stone-100 text-xs font-bold"><span>Room 302 - Jonathan K.</span><span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black">CHECKED IN</span></div>
                                 <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-stone-100 text-xs font-bold"><span>Room 105 - Marcus V.</span><span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-black">KEY PENDING</span></div>
                             </div>
                         `;
                     case 'mod3':
+                        // ==========================================================
+                        // MODULE 3: ROOMS & HOUSEKEEPING WITH FULL CRUD INTERACTION
+                        // ==========================================================
                         return `
-                            <h2 class="text-sm font-black text-slate-900 mb-1">3. Room & Housekeeping Task Queues</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Verify priority assignment logs across property cleaning crews.</p>
-                            <div class="flex gap-2 mb-4"><button onclick="alert('All suites dispatched to clean states')" class="bg-[var(--color-light-green)] text-white font-black text-xs px-4 py-2 rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer">Broadcast Priority Housekeeping Flag</button></div>
+                            <div class="flex flex-col gap-1 mb-4">
+                                <h2 class="text-sm font-black text-slate-900">3. Room & Housekeeping Control Matrix</h2>
+                                <p class="text-xs text-stone-400 font-medium">Add new rooms, update cleanliness tracking stages, or remove service logs completely.</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+                                <div class="bg-stone-50 border border-stone-200 rounded-xl p-4 shadow-xs">
+                                    <h3 class="text-xs font-black text-slate-900 border-b border-stone-200 pb-2 mb-3 uppercase tracking-wider">🏢 Register New Property Room</h3>
+                                    <form id="form-create-room" class="space-y-3 text-xs font-bold">
+                                        <div>
+                                            <label class="block text-[10px] text-stone-500 uppercase mb-1">Room/Suite Number:</label>
+                                            <input id="room-input-number" type="text" required placeholder="e.g. 402" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] text-stone-500 uppercase mb-1">Room Classification Tier:</label>
+                                            <input id="room-input-type" type="text" required placeholder="e.g. Honeymoon Villa" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] text-stone-500 uppercase mb-1">Clean Status:</label>
+                                                <select id="room-input-status" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none">
+                                                    <option value="Clean">Clean</option>
+                                                    <option value="Dirty">Dirty</option>
+                                                    <option value="Out of Order">Out of Order</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] text-stone-500 uppercase mb-1">Assign Attendant:</label>
+                                                <input id="room-input-staff" type="text" placeholder="e.g. Sarah M." class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white text-xs font-black py-2.5 rounded transition uppercase tracking-wider cursor-pointer">Commit Room to Log</button>
+                                    </form>
+                                </div>
+
+                                <div class="xl:col-span-2 bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs">
+                                    <div class="p-3 bg-stone-50 border-b border-stone-200 font-black text-xs text-stone-600 uppercase tracking-wider">Active Cleaning Task Queues</div>
+                                    <div class="divide-y divide-stone-100">
+                                        ${this.housekeepingRooms.map(room => {
+                                            let badgeStyle = "bg-emerald-100 text-emerald-800";
+                                            if (room.status === 'Dirty') badgeStyle = "bg-amber-100 text-amber-800";
+                                            if (room.status === 'Out of Order') badgeStyle = "bg-rose-100 text-rose-800";
+
+                                            return `
+                                                <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-bold border-b border-stone-100 last:border-none">
+                                                    <div>
+                                                        <h4 class="text-slate-900 font-black text-sm">Room ${room.number} — <span class="text-stone-500 text-xs font-normal">${room.type}</span></h4>
+                                                        <p class="text-[11px] text-stone-400 mt-0.5">Assigned Crew: <span class="text-stone-600 font-black">${room.staffAssigned}</span></p>
+                                                    </div>
+
+                                                    <div class="flex items-center gap-2 justify-between sm:justify-end">
+                                                        <select data-room-select-id="${room.id}" class="room-status-dropdown bg-stone-50 border border-stone-300 px-2 py-1.5 rounded text-[11px] font-black">
+                                                            <option value="Clean" ${room.status === 'Clean' ? 'selected' : ''}>Clean</option>
+                                                            <option value="Dirty" ${room.status === 'Dirty' ? 'selected' : ''}>Dirty</option>
+                                                            <option value="Out of Order" ${room.status === 'Out of Order' ? 'selected' : ''}>Out of Order</option>
+                                                        </select>
+
+                                                        <span class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wide ${badgeStyle}">${room.status}</span>
+
+                                                        <button data-room-del-id="${room.id}" class="btn-room-delete text-[var(--color-card-red)] hover:text-red-800 font-black uppercase text-[10px] border border-red-200 hover:bg-red-50 p-1.5 rounded ml-2 cursor-pointer">
+                                                            🗑
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                        ${this.housekeepingRooms.length === 0 ? `<div class="p-12 text-center text-stone-400 italic">No rooms loaded in current module. Add one above.</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
                         `;
                     case 'mod4':
                         return `
@@ -626,25 +791,92 @@
                         `;
                     case 'mod5':
                         return `
-                            <h2 class="text-sm font-black text-slate-900 mb-1">5. Inventory & Stocks Control Console</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Track stock levels and kitchen raw supply replenishment indices.</p>
-                            <div class="bg-white rounded-xl border border-stone-200 overflow-hidden text-xs">
-                                <div class="p-3 bg-stone-50 border-b border-stone-200 font-black text-stone-500">Current Material Asset Volumes</div>
-                                <div class="p-4 space-y-2 font-bold">
-                                    <div class="flex justify-between"><span>Chocolate Cake Base Mix</span><span class="text-emerald-600">45 Units Stocked</span></div>
-                                    <div class="flex justify-between"><span>Artisan Coffee Beans (KG)</span><span class="text-amber-600">12 Units Low Stock</span></div>
+                            <div class="flex flex-col gap-1 mb-4">
+                                <h2 class="text-sm font-black text-slate-900">5. Inventory & Stocks Control Console</h2>
+                                <p class="text-xs text-stone-400 font-medium">Add, review, modify counts, and clear raw material entries inside the resort logistics ledger.</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+                                <div class="bg-stone-50 border border-stone-200 rounded-xl p-4 shadow-xs">
+                                    <h3 class="text-xs font-black text-slate-900 border-b border-stone-200 pb-2 mb-3 uppercase tracking-wider">➕ Register New Stock Supply</h3>
+                                    <form id="form-create-inventory" class="space-y-3 text-xs font-bold">
+                                        <div>
+                                            <label class="block text-[10px] text-stone-500 uppercase mb-1">Item Title Name:</label>
+                                            <input id="inv-input-name" type="text" required placeholder="e.g. Vanilla Beans Extract" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] text-stone-500 uppercase mb-1">Initial Qty:</label>
+                                                <input id="inv-input-qty" type="number" required min="0" placeholder="50" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] text-stone-500 uppercase mb-1">Measurement Unit:</label>
+                                                <input id="inv-input-unit" type="text" required placeholder="e.g. Liters, Bags" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] text-stone-500 uppercase mb-1">Safety Alert Floor Level:</label>
+                                            <input id="inv-input-min" type="number" required min="1" placeholder="15" class="w-full bg-white border border-stone-200 p-2 rounded focus:outline-none focus:border-[var(--color-light-green)]">
+                                        </div>
+                                        <button type="submit" class="w-full bg-slate-900 hover:bg-black text-white text-xs font-black py-2.5 rounded transition uppercase tracking-wider cursor-pointer">Commit to Inventory Log</button>
+                                    </form>
+                                </div>
+
+                                <div class="xl:col-span-2 bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs">
+                                    <div class="p-3 bg-stone-50 border-b border-stone-200 font-black text-xs text-stone-600 uppercase tracking-wider">Active Warehouse Stock Matrix</div>
+                                    <div class="divide-y divide-stone-100">
+                                        ${this.inventoryItems.map(item => {
+                                            const isLow = item.qty <= item.minLevel;
+                                            return `
+                                                <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-bold border-b border-stone-100 last:border-none">
+                                                    <div class="space-y-0.5">
+                                                        <h4 class="text-slate-900 font-black text-sm">${item.name}</h4>
+                                                        <div class="flex items-center gap-2 text-[11px]">
+                                                            <span class="text-stone-400">Floor Warning Minimum: ${item.minLevel} ${item.unit}</span>
+                                                            ${isLow ? `<span class="bg-rose-100 text-rose-800 text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wide">⚠ LOW STOCK RUNNING OUT</span>` : `<span class="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wide">✔ Secure</span>`}
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="flex items-center gap-4 justify-between sm:justify-end">
+                                                        <div class="flex items-center gap-2 bg-stone-100 p-1.5 rounded border border-stone-200">
+                                                            <button data-inv-dec-id="${item.id}" class="btn-inv-minus bg-white w-6 h-6 flex items-center justify-center rounded border border-stone-300 hover:bg-stone-50 shadow-2xs font-black cursor-pointer text-stone-600">-</button>
+                                                            <span class="w-16 text-center font-mono font-black text-sm text-slate-800">${item.qty} <span class="text-[10px] text-stone-500 font-sans font-normal">${item.unit}</span></span>
+                                                            <button data-inv-inc-id="${item.id}" class="btn-inv-plus bg-white w-6 h-6 flex items-center justify-center rounded border border-stone-300 hover:bg-stone-50 shadow-2xs font-black cursor-pointer text-stone-600">+</button>
+                                                        </div>
+
+                                                        <button data-inv-del-id="${item.id}" class="btn-inv-delete text-[var(--color-card-red)] hover:text-red-800 transition font-black tracking-wider uppercase text-[11px] border border-red-200 hover:bg-red-50 px-2.5 py-1.5 rounded-lg cursor-pointer">
+                                                            🗑 Delete
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                        ${this.inventoryItems.length === 0 ? `<div class="p-12 text-center text-stone-400 italic">No supply items mapped inside the dynamic system logs. Add one above.</div>` : ''}
+                                    </div>
                                 </div>
                             </div>
                         `;
                     case 'mod6':
-                        // Dynamic implementation of Split Invoice System Interface
+                        // ==========================================================
+                        // MODULE 6: FINANCE & BILLING — SHOWING WHOLE TOTAL INCOME
+                        // ==========================================================
                         return `
-                            <h2 class="text-sm font-black text-slate-900 mb-1">6. Finance & Billing Master Audit Sheets (Split Invoice Terminal)</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Select any active guest room ticket record to divide its structural billing balance evenly among multiple dynamic separate checkout receipts.</p>
+                            <h2 class="text-sm font-black text-slate-900 mb-1">6. Finance & Billing Master Audit Sheets</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Aggregated real-time summary of profit margins and financial processing pipelines.</p>
                             
+                            <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-xl p-6 shadow-md border-b-4 border-[var(--color-light-gold)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                                <div>
+                                    <span class="text-[10px] tracking-widest font-black uppercase text-emerald-100 block">Total Combined Gross System Income</span>
+                                    <h3 class="text-3xl font-black mt-1 tracking-wide">$${this.getWholeTotalIncome().toFixed(2)}</h3>
+                                </div>
+                                <div class="bg-white/10 px-4 py-2 rounded-lg text-xs font-mono font-bold border border-white/20">
+                                    Parsed Logs: ${this.liveOrders.length} Invoices
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                                <div class="border border-stone-200 rounded-xl bg-white p-4">
-                                    <p class="text-[10px] font-black uppercase text-stone-400 tracking-wider mb-2">Select Live Target Voucher Row</p>
+                                <div class="border border-stone-200 rounded-xl bg-white p-4 shadow-xs">
+                                    <p class="text-[10px] font-black uppercase text-stone-400 tracking-wider mb-2">Select Target Voucher Row to Split</p>
                                     <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
                                         ${this.liveOrders.map(ord => `
                                             <div data-billing-select-id="${ord.id}" class="billing-row-selector cursor-pointer border p-3 rounded-lg flex justify-between items-center font-bold text-xs transition ${this.selectedBillingOrderId === ord.id ? 'border-[var(--color-light-green)] bg-emerald-50/40' : 'border-stone-200 hover:bg-stone-50'}">
@@ -658,7 +890,7 @@
                                     </div>
                                 </div>
 
-                                <div class="bg-stone-50 border border-stone-200 rounded-xl p-4">
+                                <div class="bg-stone-50 border border-stone-200 rounded-xl p-4 shadow-xs">
                                     <h3 class="text-xs font-black text-slate-900 uppercase border-b border-stone-200 pb-2 mb-3">🧮 Invoice Division Engine</h3>
                                     ${!targetBillingOrder ? `
                                         <p class="text-xs text-stone-400 font-medium py-6 text-center italic">Select an available record row on the left side menu to initialize the calculation matrix.</p>
@@ -690,7 +922,7 @@
                                                 </div>
                                             </div>
 
-                                            <button onclick="alert('Split receipt configuration logs permanently written to account ledgers successfully.');" class="w-full bg-[var(--color-light-green)] text-white font-black uppercase text-xs py-2.5 rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer text-center">
+                                            <button onclick="alert('Split balance confirmed and posted to PMS billing master ledger sheets successfully.');" class="w-full bg-[var(--color-light-green)] text-white font-black uppercase text-xs py-2.5 rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer text-center">
                                                 Confirm Split & Issue Invoices
                                             </button>
                                         </div>
@@ -701,16 +933,16 @@
                     case 'mod7':
                         return `
                             <h2 class="text-sm font-black text-slate-900 mb-1">7. HR & Employee Access Matrix Logger</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Review current internal workspace employee shift logging logs.</p>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Review current internal workspace employee shift tracking metrics.</p>
                             <div class="p-3 bg-stone-100 border rounded-lg font-mono text-[11px] text-stone-600 space-y-1">
-                                <p>[08:30 AM] - Chief of Kitchen initialized session workspace loop.</p>
-                                <p>[11:15 AM] - Waiter terminal node registered active socket stream link.</p>
+                                <p>[08:30 AM] - Operational session node connected securely.</p>
+                                <p>[11:15 AM] - Active supervisor instance authorization token cleared.</p>
                             </div>
                         `;
                     case 'mod8':
                         return `
                             <h2 class="text-sm font-black text-slate-900 mb-1">8. Performance Metrics Analytics Dashboard</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Calculates historical resort occupancy trends and yield variables.</p>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Occupancy statistics calculations and property resource deployment indices.</p>
                             <div class="bg-slate-900 text-[var(--color-light-gold)] p-6 rounded-xl font-mono text-center text-xs tracking-widest uppercase font-black">
                                 📊 [ Live Graphics Rendering Stream Active ]
                             </div>
@@ -718,9 +950,9 @@
                     case 'mod9':
                         return `
                             <h2 class="text-sm font-black text-slate-900 mb-1">9. CRM Guest Retention & Feedback Matrix</h2>
-                            <p class="text-xs text-stone-400 mb-4 font-medium">Hospitality satisfaction logs and review questionnaires ticketing sequences.</p>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Hospitality satisfaction tracking and net promoter score logging indices.</p>
                             <div class="p-4 bg-emerald-50 text-[var(--color-light-green)] border border-emerald-100 rounded-lg text-xs font-bold">
-                                Satisfaction Rate currently index calibrated at: 98.4% Net Promoter Score.
+                                Property Net Promoter Score metric sits at 98.4% satisfaction index calibration.
                             </div>
                         `;
                     default: return '';
@@ -748,7 +980,19 @@
                 document.getElementById('btn-success-home')?.addEventListener('click', () => this.setView('welcome'));
                 document.getElementById('staff-login-cancel')?.addEventListener('click', () => this.setView('welcome'));
                 document.getElementById('btn-staff-login')?.addEventListener('click', () => this.handleStaffLogin());
-                document.getElementById('btn-staff-logout')?.addEventListener('click', () => { this.staffRole = ''; this.setView('welcome'); });
+                
+                // Re-routed disconnect logic to explicitly fire full application component resets
+                document.getElementById('btn-staff-logout')?.addEventListener('click', () => { 
+                    this.staffRole = ''; 
+                    this.setView('welcome'); 
+                });
+
+                document.querySelectorAll('.category-pill-btn').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        const targetFilter = e.currentTarget.getAttribute('data-filter-target');
+                        this.setCategoryFilter(targetFilter);
+                    });
+                });
 
                 document.querySelectorAll('.add-cart-btn').forEach(b => {
                     b.addEventListener('click', (e) => this.addToCart(e.currentTarget.getAttribute('data-add-id')));
@@ -793,7 +1037,6 @@
                     });
                 });
 
-                // Invoice split listeners
                 document.querySelectorAll('.billing-row-selector').forEach(b => {
                     b.addEventListener('click', (e) => {
                         this.selectedBillingOrderId = e.currentTarget.getAttribute('data-billing-select-id');
@@ -805,11 +1048,77 @@
                     this.splitCount = parseInt(e.target.value);
                     this.render();
                 });
+
+                // ==========================================================
+                // BIND DYNAMIC INVENTORY INTERACTION DOM LISTENERS
+                // ==========================================================
+                document.getElementById('form-create-inventory')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const name = document.getElementById('inv-input-name').value.trim();
+                    const qty = document.getElementById('inv-input-qty').value;
+                    const unit = document.getElementById('inv-input-unit').value.trim();
+                    const min = document.getElementById('inv-input-min').value;
+                    
+                    this.createInventoryItem(name, qty, unit, min);
+                });
+
+                document.querySelectorAll('.btn-inv-plus').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        const id = e.currentTarget.getAttribute('data-inv-inc-id');
+                        this.updateInventoryQty(id, 1);
+                    });
+                });
+
+                document.querySelectorAll('.btn-inv-minus').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        const id = e.currentTarget.getAttribute('data-inv-dec-id');
+                        this.updateInventoryQty(id, -1);
+                    });
+                });
+
+                document.querySelectorAll('.btn-inv-delete').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        const id = e.currentTarget.getAttribute('data-inv-del-id');
+                        if(confirm('Are you sure you want to remove this item from the warehouse tracking sheets?')) {
+                            this.deleteInventoryItem(id);
+                        }
+                    });
+                });
+
+                // ==========================================================
+                // BIND DYNAMIC HOUSEKEEPING INTERACTION DOM LISTENERS
+                // ==========================================================
+                document.getElementById('form-create-room')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const num = document.getElementById('room-input-number').value.trim();
+                    const typ = document.getElementById('room-input-type').value.trim();
+                    const sts = document.getElementById('room-input-status').value;
+                    const stf = document.getElementById('room-input-staff').value.trim();
+
+                    this.createRoomEntry(num, typ, sts, stf);
+                });
+
+                document.querySelectorAll('.room-status-dropdown').forEach(s => {
+                    s.addEventListener('change', (e) => {
+                        const id = e.currentTarget.getAttribute('data-room-select-id');
+                        const nextValue = e.target.value;
+                        this.updateRoomStatus(id, nextValue);
+                    });
+                });
+
+                document.querySelectorAll('.btn-room-delete').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        const id = e.currentTarget.getAttribute('data-room-del-id');
+                        if(confirm('Permanently wipe this suite entry out of your resort facility listing logs?')) {
+                            this.deleteRoomEntry(id);
+                        }
+                    });
+                });
             }
 
             handleStaffLogin() {
                 const val = document.getElementById('staff-role-input').value.trim();
-                if (!val) { alert("Please supply your custom role verification title."); return; }
+                if (!val) { alert("Please supply role title."); return; }
                 this.staffRole = val;
                 this.setView('staff-dashboard');
             }
