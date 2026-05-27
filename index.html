@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bethany Hotel & Resort - Unified Management System</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --color-light-green: #009639;
+            --color-light-green-hover: #007A2E;
+            --color-light-gold: #D4AF37;
+            --color-silver-light: #F4F6F4;
+            --color-card-red: #DC2626;
+            --color-card-red-hover: #B91C1C;
+        }
+        body {
+            background-color: var(--color-silver-light);
+        }
+        .resort-bg-hero {
+            /* Fixed asset lookup path configuration to explicitly target your local image repository file name */
+            background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.80)), url('beth.jpeg');
+            background-size: cover;
+            background-position: center;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--color-silver-light); }
+        ::-webkit-scrollbar-thumb { background: var(--color-light-green); border-radius: 4px; }
+    </style>
+</head>
+<body class="font-sans text-slate-800 antialiased min-h-screen">
+
+    <div id="root"></div>
+
+    <script type="text/javascript">
+        // ==========================================================
+        // FIREBASE CONNECTIVITY INITIALIZATION NODES
+        // ==========================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB40MsTrGtGnMWSjQ_2eVqaqzoaF6Gr5o",
+            authDomain: "bethany-19d3d.firebaseapp.com",
+            projectId: "bethany-19d3d",
+            storageBucket: "bethany-19d3d.firebasestorage.app",
+            messagingSenderId: "313776681064",
+            appId: "1:313776681064:web:d18b33751fcb0f1e04bdd",
+            measurementId: "G-JGWED48SVY"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Exact Local Culinary Menu Assets Registry Mapping File Names
+        const MENU_ITEMS = [
+            { id: "p1", name: "Cake", price: 6.00, image: "cake.jpg" },
+            { id: "p2", name: "Brownie", price: 4.00, image: "food.jpg" },
+            { id: "p3", name: "Waffle", price: 5.00, image: "waf.jpg" },
+            { id: "p4", name: "Tiramisu", price: 6.00, image: "tiramisu.jpg" }
+        ];
+
+        // All 9 Core Functional System Operational Department Buttons
+        const SYSTEM_MODULES = [
+            { id: 'mod1', title: '1. Reservations & Bookings' },
+            { id: 'mod2', title: '2. Front Office Control' },
+            { id: 'mod3', title: '3. Room & Housekeeping' },
+            { id: 'mod4', title: '4. Restaurant & Orders' },
+            { id: 'mod5', title: '5. Inventory & Stocks' },
+            { id: 'mod6', title: '6. Finance & Billing' },
+            { id: 'mod7', title: '7. HR & Access Logs' },
+            { id: 'mod8', title: '8. Analytics Dashboard' },
+            { id: 'mod9', title: '9. CRM & Feedback' }
+        ];
+
+        class BethanyHMS {
+            constructor() {
+                this.cart = [];
+                this.currentView = 'welcome'; 
+                this.staffRole = ''; 
+                this.activeModuleTab = 'mod4'; 
+                this.liveOrders = [];
+                this.selectedDetailedOrder = null;
+                this.generatedOrderId = '';
+                this.mobilePaymentNumber = '';
+                this.guestNameInput = '';
+                this.trackingOrderIdSearch = '';
+                this.trackingOrderResult = null;
+                
+                // Invoice splitting system variables
+                this.splitCount = 2; 
+                this.selectedBillingOrderId = null;
+
+                // Bootstrap initialization routines
+                this.render();
+                this.startLiveOrderListener();
+            }
+
+            setView(view) {
+                this.currentView = view;
+                this.render();
+            }
+
+            addToCart(itemId) {
+                const product = MENU_ITEMS.find(item => item.id === itemId);
+                if (!product) return;
+                const existing = this.cart.find(item => item.product.id === itemId);
+                if (existing) { existing.quantity++; } else { this.cart.push({ product, quantity: 1 }); }
+                this.render();
+            }
+
+            adjustQty(itemId, amount) {
+                const item = this.cart.find(i => i.product.id === itemId);
+                if (!item) return;
+                item.quantity += amount;
+                if (item.quantity <= 0) this.cart = this.cart.filter(i => i.product.id !== itemId);
+                this.render();
+            }
+
+            startLiveOrderListener() {
+                try {
+                    db.collection("orders")
+                        .orderBy("timestamp", "desc")
+                        .onSnapshot((snapshot) => {
+                            this.liveOrders = [];
+                            snapshot.forEach((doc) => {
+                                const data = doc.data();
+                                this.liveOrders.push({
+                                    id: doc.id,
+                                    orderRefId: data.orderRefId || data.referenceId || "BETH-9831",
+                                    guestName: data.guestName || "Valued Resident",
+                                    room: data.room || "Suite 204",
+                                    items: data.items || [],
+                                    total: Number(data.total || 0),
+                                    status: data.status || "PENDING EXECUTION",
+                                    mobile: data.mobile || "N/A"
+                                });
+                            });
+                            
+                            if (this.currentView === 'track-progress' && this.trackingOrderIdSearch) {
+                                const match = this.liveOrders.find(o => o.orderRefId.toLowerCase() === this.trackingOrderIdSearch.toLowerCase());
+                                if (match) this.trackingOrderResult = match;
+                            }
+                            
+                            this.render();
+                        });
+                } catch(err) {
+                    console.error("Database streaming initialization block failed: ", err);
+                }
+            }
+
+            async submitMPaymentTransaction(e) {
+                e.preventDefault();
+                const nameInput = document.getElementById('checkout-name-input').value.trim();
+                const phoneInput = document.getElementById('checkout-mobile-input').value.trim();
+                
+                if (!nameInput || !phoneInput) { 
+                    alert("Please provide both checking metrics values."); 
+                    return; 
+                }
+                
+                this.guestNameInput = nameInput;
+                this.mobilePaymentNumber = phoneInput;
+                
+                const btn = document.getElementById('btn-submit-checkout');
+                if (btn) { 
+                    btn.disabled = true; 
+                    btn.innerText = "TRANSMITTING SECURE PAYLOAD..."; 
+                }
+
+                const txnId = "BETH-" + Math.floor(10000 + Math.random() * 90000);
+                this.generatedOrderId = txnId;
+
+                try {
+                    await db.collection("orders").add({
+                        orderRefId: txnId,
+                        referenceId: txnId,
+                        guestName: this.guestNameInput,
+                        room: "Suite " + (Math.floor(Math.random() * 190) + 101),
+                        mobile: this.mobilePaymentNumber,
+                        items: this.cart.map(c => ({ name: c.product.name, qty: c.quantity })),
+                        total: this.cart.reduce((t, c) => t + (c.product.price * c.quantity), 0),
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: "PENDING EXECUTION"
+                    });
+
+                    this.cart = [];
+                    this.setView('order-success');
+                } catch(err) {
+                    console.error(err);
+                    alert("Local database execution link disconnected.");
+                    if (btn) { btn.disabled = false; btn.innerText = "PROCEED TO VERIFY & SUBMIT"; }
+                }
+            }
+
+            trackOrderSearch(e) {
+                e.preventDefault();
+                const idInput = document.getElementById('tracker-id-input').value.trim();
+                if (!idInput) return;
+
+                this.trackingOrderIdSearch = idInput;
+                const match = this.liveOrders.find(o => o.orderRefId.toLowerCase() === idInput.toLowerCase());
+                
+                if (match) {
+                    this.trackingOrderResult = match;
+                } else {
+                    this.trackingOrderResult = null;
+                    alert("No record matching that Reference ID found in the database stream.");
+                }
+                this.render();
+            }
+
+            async updateOrderStatus(orderId, newStatus) {
+                try {
+                    await db.collection("orders").doc(orderId).update({
+                        status: newStatus
+                    });
+                    this.render();
+                } catch(err) {
+                    console.error(err);
+                    alert("Unable to process status adjustment over channel stream links.");
+                }
+            }
+
+            render() {
+                const root = document.getElementById('root');
+                if (!root) return;
+
+                if (this.currentView === 'welcome') root.innerHTML = this.viewWelcome();
+                else if (this.currentView === 'menu') root.innerHTML = this.viewMenu();
+                else if (this.currentView === 'payment') root.innerHTML = this.viewPayment();
+                else if (this.currentView === 'order-success') root.innerHTML = this.viewOrderSuccess();
+                else if (this.currentView === 'staff-login') root.innerHTML = this.viewStaffLogin();
+                else if (this.currentView === 'staff-dashboard') root.innerHTML = this.viewStaffDashboard();
+                else if (this.currentView === 'track-progress') root.innerHTML = this.viewTrackProgress();
+
+                this.bindAllEvents();
+            }
+
+            // ==========================================================
+            // MODULE RENDER COMPONENT SCHEMAS
+            // ==========================================================
+            viewWelcome() {
+                return `
+                    <div class="relative min-h-screen w-full flex items-center justify-center resort-bg-hero overflow-hidden">
+                        <div class="absolute top-4 right-4 z-50 flex gap-2">
+                            <button id="nav-track" class="bg-slate-900 text-[var(--color-light-gold)] border border-[var(--color-light-gold)] px-4 py-2.5 text-xs font-black rounded-lg hover:bg-black transition cursor-pointer uppercase tracking-wider">
+                                🔎 Track Order Status
+                            </button>
+                            <button id="nav-login" class="bg-white/10 text-white border border-white/20 px-4 py-2.5 text-xs font-black rounded-lg hover:bg-zinc-800 transition cursor-pointer backdrop-blur-md uppercase tracking-wider">
+                                🔐 Staff Workspace Login
+                            </button>
+                        </div>
+                        <div class="relative w-11/12 max-w-md bg-white rounded-xl p-8 text-center shadow-2xl border-t-4 border-[var(--color-light-green)]">
+                            <span class="tracking-widest text-[var(--color-light-gold)] font-black text-xs uppercase block mb-1">Luxury Resort Workspace</span>
+                            <h1 class="text-3xl font-black text-slate-900 mb-6">Bethany Management</h1>
+                            <p class="text-xs text-stone-500 mb-6 font-medium leading-relaxed">Welcome to the integrated Bethany management core. Access guest order configurations, split balances, or open department operations consoles instantly.</p>
+                            <div class="space-y-3">
+                                <button id="nav-menu" class="w-full py-4 bg-[var(--color-light-green)] text-white hover:bg-[var(--color-light-green-hover)] font-black rounded-lg transition text-xs uppercase tracking-wider cursor-pointer shadow-xs">
+                                    🍇 Place Room Refreshment Order
+                                </button>
+                                <button id="nav-services-shortcut" class="w-full py-4 bg-white text-[var(--color-light-green)] border-2 border-[var(--color-light-green)] font-black rounded-lg text-xs uppercase tracking-wider transition hover:bg-stone-50 cursor-pointer">
+                                    🏢 Access Internal Admin Terminals
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            viewMenu() {
+                const total = this.cart.reduce((t, c) => t + (c.product.price * c.quantity), 0);
+                return `
+                    <header class="bg-white border-b border-stone-200 sticky top-0 z-50 px-8 py-4 flex justify-between items-center shadow-xs">
+                        <h2 id="logo-home" class="text-lg font-black tracking-widest text-slate-900 cursor-pointer uppercase">B<span class="text-[var(--color-light-gold)]">ethany</span></h2>
+                        <button id="menu-back" class="text-xs border border-stone-300 px-4 py-2 rounded-lg font-bold text-stone-600 hover:bg-stone-50 transition cursor-pointer">🏠 Return Home</button>
+                    </header>
+
+                    <main class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2 space-y-6">
+                            <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                                <span class="w-1.5 h-4 bg-[var(--color-light-green)] rounded-xs"></span> Guest Culinary Cart Selection
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                ${MENU_ITEMS.map(item => `
+                                    <div class="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs flex flex-col justify-between hover:border-[var(--color-light-gold)] transition">
+                                        <div class="h-48 w-full bg-stone-100 flex items-center justify-center font-bold text-stone-400">
+                                            <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.parentNode.innerHTML='[ ${item.name} Image Asset ]'">
+                                        </div>
+                                        <div class="p-4 bg-white">
+                                            <h4 class="font-black text-stone-900 text-sm">${item.name}</h4>
+                                            <p class="text-xs font-black text-[var(--color-light-gold)] mt-1">$${item.price.toFixed(2)}</p>
+                                            <button data-add-id="${item.id}" class="add-cart-btn w-full mt-4 bg-[var(--color-light-green)] text-white py-2.5 text-xs font-black rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer uppercase tracking-wider">
+                                                + Add to Cart
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-stone-200 rounded-xl p-5 shadow-xs h-fit sticky top-24">
+                            <div class="flex justify-between items-center border-b border-stone-100 pb-3 mb-4">
+                                <h3 class="text-sm font-black text-slate-900">🛒 Cart Contents</h3>
+                                <span class="text-[10px] bg-stone-100 text-stone-500 font-bold px-2 py-0.5 rounded">${this.cart.length} items</span>
+                            </div>
+                            ${this.cart.length === 0 ? `
+                                <p class="text-stone-400 text-xs text-center py-16 font-medium">Your culinary basket is currently empty.</p>
+                            ` : `
+                                <div class="space-y-3 mb-4 max-h-64 overflow-y-auto pr-1">
+                                    ${this.cart.map(c => `
+                                        <div class="flex justify-between items-center text-xs border-b border-stone-100 pb-3 font-bold">
+                                            <div>
+                                                <p class="font-black text-stone-800">${c.product.name}</p>
+                                                <p class="text-[11px] text-[var(--color-light-gold)] font-black">$${c.product.price.toFixed(2)}</p>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <button data-min-id="${c.product.id}" class="qty-min-btn bg-stone-100 w-5 h-5 flex items-center justify-center rounded font-bold cursor-pointer">-</button>
+                                                <span class="font-black text-stone-800 w-4 text-center">${c.quantity}</span>
+                                                <button data-plus-id="${c.product.id}" class="qty-plus-btn bg-stone-100 w-5 h-5 flex items-center justify-center rounded font-bold cursor-pointer">+</button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <div class="border-t border-stone-100 pt-3 flex justify-between items-center mb-4">
+                                    <span class="text-xs uppercase font-bold text-stone-500">Total Sum:</span>
+                                    <span class="text-lg font-black text-slate-900">$${total.toFixed(2)}</span>
+                                </div>
+                                <button id="go-checkout" class="w-full bg-[var(--color-light-green)] text-white py-3.5 font-black rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer uppercase text-xs tracking-wider text-center block shadow-xs">
+                                    Proceed to Checkout
+                                </button>
+                            `}
+                        </div>
+                    </main>
+                `;
+            }
+
+            viewPayment() {
+                const total = this.cart.reduce((t, c) => t + (c.product.price * c.quantity), 0);
+                return `
+                    <div class="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-stone-100">
+                        <div class="w-full max-w-md bg-white rounded-xl p-6 shadow-xl border border-[var(--color-light-gold)]">
+                            <h2 class="text-base font-black text-slate-900 mb-1 flex items-center gap-2">📱 Dispatch Verification</h2>
+                            <p class="text-xs text-stone-400 mb-6 font-medium">Please supply tracking parameter data coordinates below to transmit your order logs.</p>
+                            
+                            <div class="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-6">
+                                <span class="text-[10px] font-black text-stone-400 uppercase block tracking-wider">TOTAL ORDER VALUATION</span>
+                                <span class="text-2xl font-black text-[var(--color-light-green)] mt-0.5 block">$${total.toFixed(2)}</span>
+                            </div>
+
+                            <form id="checkout-payment-form" class="space-y-4">
+                                <div>
+                                    <label class="block text-[10px] font-black text-stone-600 uppercase mb-1.5 tracking-wider">Guest Full Name:</label>
+                                    <input id="checkout-name-input" type="text" required placeholder="e.g. Jane Doe" class="w-full border border-stone-200 p-3 rounded-lg text-xs bg-white font-bold focus:outline-none focus:border-[var(--color-light-green)] transition shadow-inner">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-stone-600 uppercase mb-1.5 tracking-wider">Mobile Phone Contact String:</label>
+                                    <input id="checkout-mobile-input" type="text" required placeholder="e.g. 0788000000" class="w-full border border-stone-200 p-3 rounded-lg text-xs bg-white font-bold focus:outline-none focus:border-[var(--color-light-green)] transition shadow-inner">
+                                </div>
+                                
+                                <div class="pt-4">
+                                    <button type="submit" id="btn-submit-checkout" class="w-full bg-[var(--color-card-red)] text-white py-3.5 rounded-lg font-black text-xs hover:bg-[var(--color-card-red-hover)] transition uppercase tracking-widest cursor-pointer shadow-md">
+                                        SUBMIT ORDER & DISPATCH TO LIVE FEED
+                                    </button>
+                                </div>
+                            </form>
+                            <button id="pay-cancel" class="w-full text-stone-400 text-xs mt-4 hover:underline text-center block font-black">Return and Edit Basket</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            viewOrderSuccess() {
+                return `
+                    <div class="min-h-screen w-full flex items-center justify-center px-4 bg-stone-100">
+                        <div class="w-full max-w-md bg-white rounded-xl p-6 text-center border-2 border-[var(--color-light-green)] shadow-2xl">
+                            <div class="w-12 h-12 bg-emerald-50 text-[var(--color-light-green)] rounded-full flex items-center justify-center text-xl mx-auto mb-4 border border-[var(--color-light-green)] font-black">✓</div>
+                            <h2 class="text-lg font-black text-slate-900">Order Sent Successfully!</h2>
+                            <p class="text-xs text-stone-400 mt-1 mb-6 font-medium">Your request balance summary tracking code reference token step has been dispatched into the active workstation modules pool loop.</p>
+                            
+                            <div class="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-4 text-left">
+                                <span class="text-[10px] font-black uppercase text-stone-400 tracking-wider block">Generated Reference Tracking Code ID</span>
+                                <span class="font-mono text-lg font-black text-[var(--color-card-red)] block mt-0.5 tracking-wider">${this.generatedOrderId}</span>
+                            </div>
+                            
+                            <button id="btn-success-home" class="w-full bg-slate-900 text-white py-3 rounded-lg text-xs font-black hover:bg-black transition cursor-pointer uppercase tracking-wider">
+                                Return to Main Portal Hub
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            viewTrackProgress() {
+                const ord = this.trackingOrderResult;
+                return `
+                    <div class="min-h-screen w-full bg-stone-100 py-12 px-4 flex flex-col items-center">
+                        <div class="w-full max-w-xl bg-white rounded-xl shadow-xl border border-stone-200 p-6">
+                            <div class="flex justify-between items-center border-b border-stone-200 pb-4 mb-6">
+                                <h2 class="text-base font-black text-slate-900 uppercase tracking-wide">🔎 Room Service Request Tracker</h2>
+                                <button id="btn-tracker-home" class="text-xs font-bold border border-stone-300 px-3 py-1.5 rounded-lg hover:bg-stone-50 transition cursor-pointer">🏠 Exit Tracker</button>
+                            </div>
+
+                            <form id="form-order-tracker" class="flex gap-2 mb-6">
+                                <input id="tracker-id-input" type="text" value="${this.trackingOrderIdSearch}" placeholder="Enter Ticket Reference Code (e.g. BETH-54912)" class="flex-1 border border-stone-300 p-3 rounded-lg text-xs font-black uppercase tracking-wider focus:outline-none focus:border-[var(--color-light-green)]">
+                                <button type="submit" class="bg-slate-900 text-white font-black text-xs px-5 py-3 rounded-lg hover:bg-black transition cursor-pointer uppercase">Query State</button>
+                            </form>
+
+                            ${!ord ? `
+                                <div class="text-center py-12 border-2 border-dashed border-stone-200 rounded-xl text-stone-400 text-xs font-medium">
+                                    Input your dynamic token code tracking key metric row pattern above to stream transaction progress.
+                                </div>
+                            ` : `
+                                <div class="bg-stone-50 border border-stone-200 rounded-xl p-5 space-y-4 font-bold text-xs">
+                                    <div class="flex flex-col sm:flex-row sm:justify-between border-b border-stone-200 pb-3 gap-2">
+                                        <div>
+                                            <p class="text-stone-400 text-[10px] uppercase">Registered Recipient</p>
+                                            <p class="text-slate-900 font-black text-sm mt-0.5">${ord.guestName}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-stone-400 text-[10px] uppercase sm:text-right">Live Stage Status</p>
+                                            <span class="inline-block px-3 py-1 mt-0.5 rounded text-[10px] uppercase font-black tracking-wider bg-amber-100 text-amber-800 border border-amber-200">${ord.status}</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-stone-400 text-[10px] uppercase mb-1.5">Ordered Items Contents Breakdown:</p>
+                                        <div class="bg-white border border-stone-100 rounded-lg p-3 divide-y divide-stone-100">
+                                            ${ord.items.map(i => `
+                                                <div class="flex justify-between py-1.5 first:pt-0 last:pb-0 text-slate-800">
+                                                    <span>• ${i.name}</span>
+                                                    <span class="text-stone-400">Qty: ${i.qty}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
+                                    <div class="flex justify-between items-center bg-white border border-stone-100 p-3 rounded-lg">
+                                        <span class="text-stone-400 text-[10px] uppercase">Calculated Value:</span>
+                                        <span class="text-base font-black text-[var(--color-light-green)]">$${(ord.total || 0).toFixed(2)}</span>
+                                    </div>
+
+                                    ${ord.status !== 'RECEIVED & COMPLETED' ? `
+                                        <div class="pt-4 border-t border-stone-200">
+                                            <button data-complete-target-id="${ord.id}" class="btn-guest-mark-received w-full bg-[var(--color-light-green)] text-white py-3 font-black text-xs rounded-lg hover:bg-[var(--color-light-green-hover)] transition shadow-sm uppercase tracking-wider cursor-pointer text-center block">
+                                                ✔ I Have Received My Order (Mark as Completed)
+                                            </button>
+                                        </div>
+                                    ` : `
+                                        <div class="bg-emerald-50 border border-emerald-200 text-[var(--color-light-green)] p-3 rounded-lg text-center font-black">
+                                            🎉 This request pipeline structure has been fully finalized and signed off as Received.
+                                        </div>
+                                    `}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            viewStaffLogin() {
+                return `
+                    <div class="min-h-screen w-full flex items-center justify-center bg-slate-900 px-4">
+                        <div class="w-full max-w-sm bg-white rounded-xl p-6 shadow-2xl border-t-4 border-[var(--color-light-gold)]">
+                            <h2 class="text-base font-black text-slate-900 text-center uppercase tracking-wider">HMS Security Matrix Gateway</h2>
+                            <p class="text-xs text-stone-400 text-center mb-6 mt-1 font-medium">Input your internal registered duty role to unlock the 9 module workspace lines.</p>
+                            
+                            <div class="mb-4">
+                                <label class="block text-[10px] font-black text-stone-500 uppercase mb-1.5 tracking-wider">Duty Assignment Role Title</label>
+                                <input id="staff-role-input" type="text" placeholder="e.g. Chief of Kitchen, Waiters, Manager" class="w-full border border-stone-200 p-3 rounded-lg text-xs focus:outline-none focus:border-[var(--color-light-green)] bg-stone-50 font-black">
+                            </div>
+                            
+                            <button id="btn-staff-login" class="w-full bg-[var(--color-light-green)] text-white py-3 rounded-lg font-black text-xs hover:bg-[var(--color-light-green-hover)] transition uppercase tracking-wider cursor-pointer shadow-xs">Establish Workstation Session</button>
+                            <button id="staff-login-cancel" class="w-full text-stone-400 text-xs mt-3 text-center block font-black hover:underline">Exit Portal</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            viewStaffDashboard() {
+                return `
+                    <div class="min-h-screen flex flex-col bg-stone-50">
+                        <header class="bg-white text-slate-900 px-6 py-4 flex justify-between items-center border-b border-stone-200 shadow-xs">
+                            <div>
+                                <h1 class="text-xs font-black tracking-widest text-slate-900 uppercase">BETHANY MAIN FRAME CONTROL TERMINAL</h1>
+                                <p class="text-[11px] font-bold mt-1 text-[var(--color-light-green)] inline-flex items-center gap-1.5 bg-[var(--color-light-gold)]/20 px-3 py-1 rounded-full border border-[var(--color-light-gold)]">
+                                    <span class="w-2 h-2 rounded-full bg-white block animate-pulse"></span>
+                                    ACTIVE CLEARANCE DUTY ROLE: <span class="font-black uppercase text-slate-900">${this.staffRole || 'System Administrator'}</span>
+                                </p>
+                            </div>
+                            <button id="btn-staff-logout" class="bg-white border border-stone-300 text-stone-600 px-4 py-2 text-xs font-black rounded-lg hover:bg-stone-50 transition cursor-pointer uppercase tracking-wider shadow-xs">Disconnect Session</button>
+                        </header>
+
+                        <div class="flex-1 flex flex-col lg:flex-row">
+                            <aside class="w-full lg:w-64 bg-white p-4 border-r border-stone-200 shrink-0 shadow-xs">
+                                <p class="text-[9px] font-black text-stone-400 uppercase tracking-widest px-1 mb-3">Operational Departments Matrix</p>
+                                <nav class="space-y-1">
+                                    ${SYSTEM_MODULES.map(mod => {
+                                        const isSelected = this.activeModuleTab === mod.id;
+                                        return `
+                                            <button data-module-tab="${mod.id}" class="sidebar-tab-btn w-full text-left px-3 py-3 rounded-lg text-xs font-black transition flex items-center justify-between cursor-pointer ${isSelected ? 'bg-[var(--color-light-green)] text-white shadow-md border-b-2 border-[var(--color-light-gold)]' : 'hover:bg-stone-50 text-slate-600'}" >
+                                                <span>${mod.title}</span>
+                                                ${isSelected ? `<span class="text-[9px] bg-white text-[var(--color-light-green)] px-1.5 py-0.5 rounded-sm font-black">LIVE</span>` : ''}
+                                            </button>
+                                        `;
+                                    }).join('')}
+                                </nav>
+                            </aside>
+
+                            <main class="flex-1 p-6">
+                                <div class="bg-white rounded-xl shadow-xs border border-stone-200 p-6 min-h-[520px]">
+                                    ${this.renderActiveTabContent()}
+                                </div>
+                            </main>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderActiveTabContent() {
+                // Find order matching invoice splits view selection
+                const targetBillingOrder = this.liveOrders.find(o => o.id === this.selectedBillingOrderId);
+
+                switch(this.activeModuleTab) {
+                    case 'mod1':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">1. Reservations & Bookings Matrix</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Real-time room allocation status trackers and incoming reservations registry.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center"><span class="block text-xl font-black text-[var(--color-light-green)]">84%</span><span class="text-[10px] text-stone-400 uppercase font-black">Occupancy Yield</span></div>
+                                <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl text-center"><span class="block text-xl font-black text-blue-700">12</span><span class="text-[10px] text-stone-400 uppercase font-black">Expected Arrivals</span></div>
+                                <div class="p-4 bg-purple-50 border border-purple-100 rounded-xl text-center"><span class="block text-xl font-black text-purple-700">45</span><span class="text-[10px] text-stone-400 uppercase font-black">Active Room Keys</span></div>
+                            </div>
+                            <button onclick="alert('Generating full room scheduling report array')" class="bg-slate-900 text-white text-xs font-black px-4 py-2.5 rounded-lg hover:bg-black uppercase tracking-wider cursor-pointer">Generate Schedule Report</button>
+                        `;
+                    case 'mod2':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">2. Front Office Control Station</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Guest check-in validation pipelines and identity keycard data tracks.</p>
+                            <div class="border border-stone-200 rounded-xl p-4 bg-stone-50 space-y-2">
+                                <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-stone-100 text-xs font-bold"><span>Room 302 - Jonathan K.</span><span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black">CHECKED IN</span></div>
+                                <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-stone-100 text-xs font-bold"><span>Room 105 - Marcus V.</span><span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-black">KEY PENDING</span></div>
+                            </div>
+                        `;
+                    case 'mod3':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">3. Room & Housekeeping Task Queues</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Verify priority assignment logs across property cleaning crews.</p>
+                            <div class="flex gap-2 mb-4"><button onclick="alert('All suites dispatched to clean states')" class="bg-[var(--color-light-green)] text-white font-black text-xs px-4 py-2 rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer">Broadcast Priority Housekeeping Flag</button></div>
+                        `;
+                    case 'mod4':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">4. Restaurant & Orders Live Monitoring Feed Deck</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Reading continuous transaction records directly out of your Firebase cloud project arrays. Update progress tracks on behalf of the kitchen team.</p>
+                            
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+                                <div class="xl:col-span-2 overflow-x-auto border border-stone-200 rounded-xl bg-white shadow-xs">
+                                    ${this.liveOrders.length === 0 ? `
+                                        <div class="p-16 text-center text-xs text-stone-400 font-black tracking-wide">📡 Open cloud socket stream active. Listening for live checkout entries...</div>
+                                    ` : `
+                                        <table class="w-full text-left text-xs border-collapse">
+                                            <thead>
+                                                <tr class="bg-stone-50 text-stone-500 border-b border-stone-200 font-bold">
+                                                    <th class="p-3.5">Reference ID</th>
+                                                    <th class="p-3.5">Guest Recipient</th>
+                                                    <th class="p-3.5">Total Amount</th>
+                                                    <th class="p-3.5">Status</th>
+                                                    <th class="p-3.5 text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-stone-100 bg-white font-bold">
+                                                ${this.liveOrders.map(ord => `
+                                                    <tr class="hover:bg-stone-50/70 transition ${this.selectedDetailedOrder?.id === ord.id ? 'bg-emerald-50/30' : ''}">
+                                                        <td class="p-3.5 font-mono text-[var(--color-card-red)] text-xs tracking-wide">${ord.orderRefId}</td>
+                                                        <td class="p-3.5 text-slate-900 font-black">${ord.guestName}</td>
+                                                        <td class="p-3.5 text-[var(--color-light-green)]">$${ord.total.toFixed(2)}</td>
+                                                        <td class="p-3.5">
+                                                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide bg-zinc-100 text-zinc-700">${ord.status}</span>
+                                                        </td>
+                                                        <td class="p-3.5 text-right"><button data-inspect-order-id="${ord.id}" class="inspect-row-btn bg-slate-900 text-white font-black px-3 py-1.5 rounded text-[11px] hover:bg-black transition cursor-pointer shadow-xs">Inspect Ticket</button></td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    `}
+                                </div>
+
+                                <div class="border border-stone-200 rounded-xl p-4 bg-stone-50 min-h-[220px] shadow-xs">
+                                    <h3 class="text-xs font-black text-slate-900 border-b border-stone-200 pb-2 mb-3 uppercase tracking-wider flex items-center justify-between">
+                                        <span>📋 Operational Status Workflow</span>
+                                        ${this.selectedDetailedOrder ? `<button id="btn-close-inspect" class="text-stone-400 hover:text-stone-600 font-bold cursor-pointer">✕ Close</button>` : ''}
+                                    </h3>
+                                    ${!this.selectedDetailedOrder ? `
+                                        <div class="text-center py-12 text-xs text-stone-400 italic font-black">Select an incoming order ticket item row to display data models and progress update buttons.</div>
+                                    ` : `
+                                        <div class="space-y-3 text-xs font-bold">
+                                            <div class="bg-white p-3 rounded-lg border border-stone-100 shadow-2xs">
+                                                <p class="text-stone-400 uppercase text-[9px] tracking-wider">Contact Phone Line</p>
+                                                <p class="font-mono text-slate-800 text-xs mt-0.5">${this.selectedDetailedOrder.mobile}</p>
+                                            </div>
+                                            <div class="bg-white p-3 rounded-lg border border-stone-100 shadow-2xs">
+                                                <p class="text-stone-400 uppercase text-[9px] tracking-wider mb-2">Itemized Contents</p>
+                                                <div class="space-y-1.5 divide-y divide-stone-100">
+                                                    ${this.selectedDetailedOrder.items.map(i => `
+                                                        <div class="flex justify-between items-center pt-1.5 text-stone-800 font-black">
+                                                            <span>${i.name}</span>
+                                                            <span class="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[10px]">Qty: ${i.qty}</span>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+
+                                            <div class="bg-white p-3 rounded-lg border border-stone-200 space-y-2">
+                                                <p class="text-stone-400 uppercase text-[9px] tracking-wider">Change Progress Stage:</p>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <button data-status-route="PREPARING" class="btn-change-status bg-amber-500 hover:bg-amber-600 text-white p-2 rounded font-black text-[10px] cursor-pointer uppercase transition">Set Preparing</button>
+                                                    <button data-status-route="DISPATCHED" class="btn-change-status bg-blue-600 hover:bg-blue-700 text-white p-2 rounded font-black text-[10px] cursor-pointer uppercase transition">Set Dispatched</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        `;
+                    case 'mod5':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">5. Inventory & Stocks Control Console</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Track stock levels and kitchen raw supply replenishment indices.</p>
+                            <div class="bg-white rounded-xl border border-stone-200 overflow-hidden text-xs">
+                                <div class="p-3 bg-stone-50 border-b border-stone-200 font-black text-stone-500">Current Material Asset Volumes</div>
+                                <div class="p-4 space-y-2 font-bold">
+                                    <div class="flex justify-between"><span>Chocolate Cake Base Mix</span><span class="text-emerald-600">45 Units Stocked</span></div>
+                                    <div class="flex justify-between"><span>Artisan Coffee Beans (KG)</span><span class="text-amber-600">12 Units Low Stock</span></div>
+                                </div>
+                            </div>
+                        `;
+                    case 'mod6':
+                        // Dynamic implementation of Split Invoice System Interface
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">6. Finance & Billing Master Audit Sheets (Split Invoice Terminal)</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Select any active guest room ticket record to divide its structural billing balance evenly among multiple dynamic separate checkout receipts.</p>
+                            
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                <div class="border border-stone-200 rounded-xl bg-white p-4">
+                                    <p class="text-[10px] font-black uppercase text-stone-400 tracking-wider mb-2">Select Live Target Voucher Row</p>
+                                    <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                        ${this.liveOrders.map(ord => `
+                                            <div data-billing-select-id="${ord.id}" class="billing-row-selector cursor-pointer border p-3 rounded-lg flex justify-between items-center font-bold text-xs transition ${this.selectedBillingOrderId === ord.id ? 'border-[var(--color-light-green)] bg-emerald-50/40' : 'border-stone-200 hover:bg-stone-50'}">
+                                                <div>
+                                                    <span class="font-mono text-[var(--color-card-red)] block">${ord.orderRefId}</span>
+                                                    <span class="text-slate-600 text-[11px]">${ord.guestName}</span>
+                                                </div>
+                                                <span class="text-slate-900 font-black">$${ord.total.toFixed(2)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <div class="bg-stone-50 border border-stone-200 rounded-xl p-4">
+                                    <h3 class="text-xs font-black text-slate-900 uppercase border-b border-stone-200 pb-2 mb-3">🧮 Invoice Division Engine</h3>
+                                    ${!targetBillingOrder ? `
+                                        <p class="text-xs text-stone-400 font-medium py-6 text-center italic">Select an available record row on the left side menu to initialize the calculation matrix.</p>
+                                    ` : `
+                                        <div class="space-y-4 text-xs font-bold">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-stone-500">Parent Ticket Total:</span>
+                                                <span class="text-sm font-black text-slate-900">$${targetBillingOrder.total.toFixed(2)}</span>
+                                            </div>
+                                            
+                                            <div>
+                                                <label class="block text-[10px] uppercase text-stone-400 font-black mb-1.5">Divide Evenly Into:</label>
+                                                <select id="select-split-factor" class="w-full bg-white border border-stone-300 p-2 rounded text-xs font-black">
+                                                    <option value="2" ${this.splitCount == 2 ? 'selected' : ''}>2 Separate Guest Receipts</option>
+                                                    <option value="3" ${this.splitCount == 3 ? 'selected' : ''}>3 Separate Guest Receipts</option>
+                                                    <option value="4" ${this.splitCount == 4 ? 'selected' : ''}>4 Separate Guest Receipts</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="bg-white border border-stone-200 rounded-lg p-3 space-y-2">
+                                                <p class="text-[10px] text-stone-400 uppercase tracking-wider font-black">Calculated Breakdown Result Matrix:</p>
+                                                <div class="space-y-1 max-h-40 overflow-y-auto">
+                                                    ${Array.from({length: this.splitCount}).map((_, idx) => `
+                                                        <div class="flex justify-between text-[11px] bg-stone-50 p-2 rounded border border-stone-100">
+                                                            <span class="text-stone-600 font-mono">Receipt Token Part #${idx + 1}</span>
+                                                            <span class="text-[var(--color-light-green)] font-black">$${(targetBillingOrder.total / this.splitCount).toFixed(2)}</span>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+
+                                            <button onclick="alert('Split receipt configuration logs permanently written to account ledgers successfully.');" class="w-full bg-[var(--color-light-green)] text-white font-black uppercase text-xs py-2.5 rounded-lg hover:bg-[var(--color-light-green-hover)] transition cursor-pointer text-center">
+                                                Confirm Split & Issue Invoices
+                                            </button>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        `;
+                    case 'mod7':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">7. HR & Employee Access Matrix Logger</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Review current internal workspace employee shift logging logs.</p>
+                            <div class="p-3 bg-stone-100 border rounded-lg font-mono text-[11px] text-stone-600 space-y-1">
+                                <p>[08:30 AM] - Chief of Kitchen initialized session workspace loop.</p>
+                                <p>[11:15 AM] - Waiter terminal node registered active socket stream link.</p>
+                            </div>
+                        `;
+                    case 'mod8':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">8. Performance Metrics Analytics Dashboard</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Calculates historical resort occupancy trends and yield variables.</p>
+                            <div class="bg-slate-900 text-[var(--color-light-gold)] p-6 rounded-xl font-mono text-center text-xs tracking-widest uppercase font-black">
+                                📊 [ Live Graphics Rendering Stream Active ]
+                            </div>
+                        `;
+                    case 'mod9':
+                        return `
+                            <h2 class="text-sm font-black text-slate-900 mb-1">9. CRM Guest Retention & Feedback Matrix</h2>
+                            <p class="text-xs text-stone-400 mb-4 font-medium">Hospitality satisfaction logs and review questionnaires ticketing sequences.</p>
+                            <div class="p-4 bg-emerald-50 text-[var(--color-light-green)] border border-emerald-100 rounded-lg text-xs font-bold">
+                                Satisfaction Rate currently index calibrated at: 98.4% Net Promoter Score.
+                            </div>
+                        `;
+                    default: return '';
+                }
+            }
+
+            bindAllEvents() {
+                document.getElementById('nav-menu')?.addEventListener('click', () => this.setView('menu'));
+                document.getElementById('nav-login')?.addEventListener('click', () => this.setView('staff-login'));
+                document.getElementById('nav-track')?.addEventListener('click', () => this.setView('track-progress'));
+                document.getElementById('nav-services-shortcut')?.addEventListener('click', () => this.setView('staff-login'));
+                
+                document.getElementById('btn-tracker-home')?.addEventListener('click', () => { 
+                    this.trackingOrderIdSearch = ''; 
+                    this.trackingOrderResult = null; 
+                    this.setView('welcome'); 
+                });
+                document.getElementById('form-order-tracker')?.addEventListener('submit', (e) => this.trackOrderSearch(e));
+                
+                document.getElementById('menu-back')?.addEventListener('click', () => this.setView('welcome'));
+                document.getElementById('logo-home')?.addEventListener('click', () => this.setView('welcome'));
+                document.getElementById('go-checkout')?.addEventListener('click', () => this.setView('payment'));
+                document.getElementById('pay-cancel')?.addEventListener('click', () => this.setView('menu'));
+                document.getElementById('checkout-payment-form')?.addEventListener('submit', (e) => this.submitMPaymentTransaction(e));
+                document.getElementById('btn-success-home')?.addEventListener('click', () => this.setView('welcome'));
+                document.getElementById('staff-login-cancel')?.addEventListener('click', () => this.setView('welcome'));
+                document.getElementById('btn-staff-login')?.addEventListener('click', () => this.handleStaffLogin());
+                document.getElementById('btn-staff-logout')?.addEventListener('click', () => { this.staffRole = ''; this.setView('welcome'); });
+
+                document.querySelectorAll('.add-cart-btn').forEach(b => {
+                    b.addEventListener('click', (e) => this.addToCart(e.currentTarget.getAttribute('data-add-id')));
+                });
+                document.querySelectorAll('.qty-plus-btn').forEach(b => {
+                    b.addEventListener('click', (e) => this.adjustQty(e.currentTarget.getAttribute('data-plus-id'), 1));
+                });
+                document.querySelectorAll('.qty-min-btn').forEach(b => {
+                    b.addEventListener('click', (e) => this.adjustQty(e.currentTarget.getAttribute('data-min-id'), -1));
+                });
+                
+                document.querySelectorAll('.sidebar-tab-btn').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        this.activeModuleTab = e.currentTarget.getAttribute('data-module-tab');
+                        this.render();
+                    });
+                });
+                
+                document.querySelectorAll('.inspect-row-btn').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        const targetId = e.currentTarget.getAttribute('data-inspect-order-id');
+                        this.selectedDetailedOrder = this.liveOrders.find(o => o.id === targetId) || null;
+                        this.render();
+                    });
+                });
+                
+                document.getElementById('btn-close-inspect')?.addEventListener('click', () => {
+                    this.selectedDetailedOrder = null;
+                    this.render();
+                });
+
+                document.querySelector('.btn-guest-mark-received')?.addEventListener('click', (e) => {
+                    const targetDocId = e.currentTarget.getAttribute('data-complete-target-id');
+                    this.updateOrderStatus(targetDocId, 'RECEIVED & COMPLETED');
+                });
+
+                document.querySelectorAll('.btn-change-status').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        if (!this.selectedDetailedOrder) return;
+                        const routeStatus = e.currentTarget.getAttribute('data-status-route');
+                        this.updateOrderStatus(this.selectedDetailedOrder.id, routeStatus);
+                    });
+                });
+
+                // Invoice split listeners
+                document.querySelectorAll('.billing-row-selector').forEach(b => {
+                    b.addEventListener('click', (e) => {
+                        this.selectedBillingOrderId = e.currentTarget.getAttribute('data-billing-select-id');
+                        this.render();
+                    });
+                });
+
+                document.getElementById('select-split-factor')?.addEventListener('change', (e) => {
+                    this.splitCount = parseInt(e.target.value);
+                    this.render();
+                });
+            }
+
+            handleStaffLogin() {
+                const val = document.getElementById('staff-role-input').value.trim();
+                if (!val) { alert("Please supply your custom role verification title."); return; }
+                this.staffRole = val;
+                this.setView('staff-dashboard');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { new BethanyHMS(); });
+    </script>
+</body>
+</html>
